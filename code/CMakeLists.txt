@@ -24,10 +24,10 @@ add_library(project_lib ${LINKING_TYPE} ${project_srcs} ${project_incs})
 #set(USE_VALGRIND OFF)
 #set(CONDUCT_MEMORY_CHECKS OFF)
 
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach()
+#get_cmake_property(_variableNames VARIABLES)
+#foreach (_variableName ${_variableNames})
+#    message(STATUS "${_variableName}=${${_variableName}}")
+#endforeach()
 
 # build executables
 file(GLOB_RECURSE executables containers/*.cxx)
