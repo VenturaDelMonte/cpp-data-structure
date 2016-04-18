@@ -28,7 +28,7 @@ TEST(AddGetTest, Basic)
 
 	val.add("eno", 12);
 	val.add("neo", 112);
-	val.add("none", 1112);
+	//val.add("none", 1112);
 
 	PRINTF("%d\n", (int)val["eno"]);	
 	PRINTF("%d\n", (int)val["neo"]);	
@@ -38,5 +38,6 @@ TEST(AddGetTest, Basic)
 	val["one"] = 24;
 	PRINTF("%d\n", (int)val["one"]);
 
+	ASSERT_TRUE(containers::proxy<int>::empty == val["none"]);
 	ASSERT_TRUE(24 == int(val["one"]));
 }

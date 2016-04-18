@@ -3,15 +3,32 @@
 
 namespace containers 
 {
-	template<typename ReturnType> class static_visitor 
+
+	template <class T> struct base_visitor 
 	{
-		public:
-  			typedef ReturnType result_type;
+	public:
+		typedef T return_type;
 	};
 
-	template<typename VisitorType, typename VisitableType> VisitorType::result_type apply_visitor(VisitorType& visitor, VisitableType& visitable) 
+	// template <class V, class T> typename V::return_type apply_visitor(V visitor, T object)
+	// {
+	// 	return visitor(object);
+	// }
+
+	// template <class V, class T> typename V::return_type apply_visitor(V* visitor, T object)
+	// {
+	// 	return (*visitor)(object);
+	// }
+
+	template <class V, class T> void apply_visitor(V visitor, T object)
 	{
-		return visitor(visitable);
+		visitor(object);
 	}
+
+	template <class V, class T> void apply_visitor(V* visitor, T object)
+	{
+		(*visitor)(object);
+	}
+
 }
 

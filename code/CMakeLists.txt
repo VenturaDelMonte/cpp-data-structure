@@ -12,14 +12,14 @@ enable_testing()
 cmake_minimum_required(VERSION 2.6)
 
 # Create a variable containing all .cpp files:
-file(GLOB_RECURSE project_srcs 	src/*.cpp src/*.def src/*.inc)
+file(GLOB_RECURSE project_srcs 	src/*.cpp src/*.def src/*.inc src/*.cxx)
 file(GLOB_RECURSE project_incs 	include/containers/*.h include/containers/*.def include/containers/*.inc )
 
 # list all include paths
 include_directories( ${project_inc_dir} )
 
 # Build the code as a library
-add_library(project_lib ${LINKING_TYPE} ${project_srcs} ${project_incs})
+add_library(containers ${LINKING_TYPE} ${project_srcs} ${project_incs})
 
 #set(USE_VALGRIND OFF)
 #set(CONDUCT_MEMORY_CHECKS OFF)
@@ -38,7 +38,7 @@ foreach ( exec_file ${executables})
         # Build dummy executable
         add_executable( ${exec_name} ${exec_file}  )
 
-	target_link_libraries(${case_name} project_lib)
+	target_link_libraries(${case_name} containers)
 	target_link_libraries(${case_name} ${pthread_lib})
 	
 endforeach(exec_file)
@@ -53,7 +53,7 @@ foreach ( case_file ${test_cases})
 	set ( case_name ${ut_prefix}${case_name} )
 	add_executable(${case_name} ${case_file})
 
-	target_link_libraries(${case_name} project_lib)
+	target_link_libraries(${case_name} containers)
 	target_link_libraries(${case_name} ${pthread_lib})
 
 	add_unit_test(${case_name} ${ut_prefix})

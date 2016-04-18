@@ -4,44 +4,40 @@
 #include <algorithm>
 #include <vector>
 #include <functional>
+#include <containers/visitor/visitor.h>
 #include <containers/tree/node.h>
+#include <containers/proxy/proxy.h>
+#include <containers/broker/object_broker.h>
 #include <stdexcept>
 #include <type_traits>
 
 namespace containers 
 {
-	
-	template <typename reference_type> class proxy 
-	{
-		public:
-			proxy(reference_type& r) : holder(&r) {}
-			void operator= (reference_type& val) 
-			{
-				*holder = val;
-			}	
-			void operator= (reference_type&& val) 
-			{
-				*holder = std::move(val);
-			}	
-			operator reference_type() 
-			{
-				return *holder;
-			}
-		private:
-			reference_type* holder;
-	};
 
 	template <typename K, typename V, int DEFAULT_SIZE = 32> class hashmap 
 	{
 	public:
+		class hashmap_node;
+		class hashmap_node : public node<K, V, hashmap_node>
+		{
+			public:
+				typedef node<K, V, hashmap_node> inherited;
+				typedef hashmap_node self_type;
+				typedef self_type* self_type_ptr;
+
+				using inherited::node;
+		};
+
 		typedef K key_type;
 		typedef V value_type;
-		typedef node<key_type, value_type> bucket_type;
-		typedef node<key_type, value_type>* bucket_type_ptr;
+		typedef hashmap_node bucket_type;
+		typedef hashmap_node* bucket_type_ptr;
 		typedef std::vector<bucket_type_ptr> bucket_array_type;
 		typedef typename bucket_array_type::iterator bucket_array_iterator;
 		typedef hashmap<key_type, value_type, DEFAULT_SIZE> self_type;
 		typedef std::hash<key_type> hash_function_type;
+
+		
 
 	private:
 
@@ -51,7 +47,7 @@ namespace containers
 
 	public:
 
-		hashmap() 
+		hashmap() : _size(0)
 		{
 			_buckets.resize(DEFAULT_SIZE);
 			std::fill(_buckets.begin(), _buckets.end(), nullptr);
@@ -64,10 +60,10 @@ namespace containers
 
 		hashmap(const self_type&& oth) 
 		{
-			(*this)(std::move(oth));
+			(*this) = oth;
 		}
 
-		self_type& operator= (const self_type& oth)
+		inline self_type& operator= (const self_type& oth)
 		{
 			destroy();
 			std::copy(oth._buckets.begin(), oth._buckets.end(), _buckets.begin());
@@ -75,7 +71,7 @@ namespace containers
 			return *this;
 		}
 
-		self_type& operator= (const self_type&& oth)
+		inline self_type& operator= (const self_type&& oth)
 		{
 			destroy();
 			_buckets = std::move(oth._buckets);
@@ -88,17 +84,17 @@ namespace containers
 			destroy();
 		}
 
-		void clear() 
+		inline void clear() 
 		{
-			
+			destroy();
 		}
 
-		uint32_t size() const 
+		inline uint32_t size() const 
 		{
 			return _size;
 		}
 
-		void add(key_type key, value_type value)
+		inline void add(key_type key, value_type value)
 		{
 			size_t key_hash = hash(key);
 			bucket_type_ptr root = _buckets[key_hash];
@@ -116,21 +112,7 @@ namespace containers
 						root->value(value);
 						break;
 					}
-					else if ((*root) < key)
-					{
-						if (root->left() == nullptr)
-						{
-							root->left(new bucket_type(key, value));
-							root->left()->parent(root);
-							_size++;
-							break;
-						}
-						else
-						{
-							root = root->left();
-						}
-					}
-					else
+					else if ((*root) < key) // key is bigger so it goes to right
 					{
 						if (root->right() == nullptr)
 						{
@@ -142,6 +124,20 @@ namespace containers
 						else
 						{
 							root = root->right();
+						}
+					}
+					else
+					{
+						if (root->left() == nullptr)
+						{
+							root->left(new bucket_type(key, value));
+							root->left()->parent(root);
+							_size++;
+							break;
+						}
+						else
+						{
+							root = root->left();
 						}
 					}
 				}
@@ -160,7 +156,7 @@ namespace containers
 		}
 */
 		
-		proxy<value_type> operator[](key_type key)
+		inline proxy<value_type> operator[](key_type key)
 		{
 			bucket_type_ptr target = binary_search_tree(key);
 			if (target != nullptr)
@@ -168,42 +164,45 @@ namespace containers
 				value_type& val = target->value();
 				return proxy<value_type>(val);
 			}
-			throw std::out_of_range(std::string("cannot find key: ") + key);
+			return proxy<value_type>::empty;
 		}
 
     private:
+    	
+    	
+		struct visitor_impl : public base_visitor<void>
+		{
+			void operator()(bucket_type_ptr node)
+			{
+				if (node->left() != nullptr)
+				{
+					apply_visitor(this, node->left());
+					node->left(nullptr);
+				}
+				if (node->right() != nullptr)
+				{
+					apply_visitor(this, node->right());
+					node->right(nullptr);
+				}
+				update_helper<value_type>::destroy(node->value());
+				delete node;
+			}
+		};
+    	
+
     	void destroy()
 		{
+			visitor_impl visitor;
 			for (auto root : _buckets)
 			{
 				if (root != nullptr)
 				{
-					struct visitor_impl : public base_visitor<void>
-					{
-						void operator()(bucket_type_ptr node)
-						{
-							if (node->left() != nullptr)
-							{
-								apply_visitor(this, node->left());
-								delete node->left();
-								node->left(nullptr);
-							}
-							if (node->right() != nullptr)
-							{
-								apply_visitor(this, node->right());
-								delete node->right();
-								node->right(nullptr);
-							}
-							update_helper<value_type>::destroy(node->value());
-
-						}
-					} visitor;
 					apply_visitor(visitor, root);
 				}
 			}
 		}
 
-		size_t hash(key_type& key) 
+		inline size_t hash(key_type& key) 
 		{
 			hash_function_type hash_helper;
 			size_t ret = hash_helper(key);
@@ -212,7 +211,7 @@ namespace containers
 			return ret;
 		}
 
-		bucket_type_ptr binary_search_tree(key_type& key)
+		inline bucket_type_ptr binary_search_tree(key_type& key)
 		{
 			size_t key_hash = hash(key);
 			bucket_type_ptr root = _buckets[key_hash];
@@ -224,33 +223,15 @@ namespace containers
 				}
 				else if ((*root) < key)
 				{
-					root = root->left();
+					root = root->right();
 				}
 				else
 				{
-					root = root->right();
+					root = root->left();
 				}
 			}
 			return nullptr;
 		}
-
-		template <class T> class update_helper
-		{
-		public:
-			static void destroy(T ptr) {}
-		};
-
-		template <class T> class update_helper<T*> 
-		{
-		public:
-			static void destroy(T ptr)
-			{
-				delete ptr;
-			}
-		};
-
-
-
 
 	}; 
 
