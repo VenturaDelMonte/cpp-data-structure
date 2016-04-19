@@ -5,7 +5,7 @@
 #include <containers/proxy/proxy.h>
 #include <containers/singleton/singleton.h>
 #include <containers/broker/object_broker.h>
-
+#include <cstring>
 // #include <containers/tree/base_tree.h>
 
 namespace containers 
@@ -25,16 +25,28 @@ namespace containers
 
 			enum node_color 
 			{
-				red,
-				black
+				black,
+				red
 			};
 			
 		private:
 			node_color _color;
+
 		public:
 			using inherited::node;
 
 			GENERATE_GETTER_SETTER(node_color, color)
+
+			inline bool is_black() const
+			{
+				return _color == node_type::node_color::black;
+			}
+
+			inline bool is_red() const
+			{
+				return _color == node_type::node_color::red;
+			}
+
 
 		protected:
 			rb_node() : _color(black)
@@ -57,6 +69,8 @@ namespace containers
 	private:
 		node_type_ptr _root;
 		size_t _size;
+
+		static node_type_ptr leaf; 
 		
 	public:
 		red_black_tree() : _root(nullptr), _size(0)
@@ -113,13 +127,10 @@ namespace containers
 	public:
 		inline node_type_ptr add(key_type key, value_type value)
 		{
-			node_type* leaf = singleton<rb_node>::get_instance(); //const_cast<node_type*>(&dummy);
 			// Case 1 - The current node is at the root of the tree.
 			if (_root == nullptr)
 			{
-				_root = new node_type(key, value);
-				_root->left(leaf);
-				_root->right(leaf);
+				_root = new node_type(key, value, leaf, leaf);
 				_root->color(node_type::node_color::black);
 				_size++;
 				return _root;
@@ -175,7 +186,79 @@ namespace containers
 			return proxy<value_type>::empty;
 		}
 
+		inline void remove(key_type key)
+		{
+			
+			node_type_ptr target = binary_search_tree(key);
+			if (target == nullptr)
+				return;
+			// http://algs4.cs.princeton.edu/33balanced/RedBlackBST.java.html
+			// https://github.com/phishman3579/java-algorithms-implementation/blob/master/src/com/jwetherell/algorithms/data_structures/RedBlackTree.java
+			node_type_ptr left = target->left();
+			node_type_ptr right = target->right();
+			// two children
+			if (left != leaf && right != leaf)
+			{
+				node_type_ptr greatest = get_greatest(left);
+				if (greatest == nullptr || greatest == leaf)
+					greatest = left;
+				// Replace node with greatest in his left tree, which leaves us with only one child
+				
+				std::memcpy(&target->_key, &greatest->_key, sizeof(key_type));
+				std::memcpy(&target->_value, &greatest->_value, sizeof(value_type));
+
+				target = greatest;
+				left = target->left();;
+				right = target->right();
+			}
+
+			// one child or after memcpy
+			node_type_ptr child = (left == nullptr || left == leaf) ? right : left;
+			if (target->is_black())
+			{
+				if (child->is_black())
+				{
+					target->color(node_type::node_color::red);
+					balance_after_delete(target);
+				}
+			}
+
+			replace_node(child, target); // child data moved to target node
+			// child has to be removed
+
+			if (_root == target) 
+			{
+				if (_root->left() == nullptr || _root->right() == nullptr)
+				{
+					_root = nullptr; // we replaced the root with a leaf
+				}
+				else
+				{
+					_root->parent(nullptr);
+					_root->color(node_type::node_color::black);
+				}
+			}
+			
+        	_size--;
+       
+		}
+
+
+		inline bool contains(key_type key)
+		{
+			//return proxy<value_type>::empty != (*this)[key];
+			return binary_search_tree(key) != nullptr;
+		}
+
+
 	private:
+
+		void balance_after_delete(node_type_ptr root);
+
+		node_type_ptr get_greatest(node_type_ptr root);
+		
+		void replace_node(node_type_ptr src, node_type_ptr dst);
+		
 		
 		struct destroyer_visitor_impl : public base_visitor <void>
 		{
@@ -228,164 +311,16 @@ namespace containers
 			return nullptr;
 		}
 
-		void balance_after_insert(node_type_ptr node)
-		{
-			node_type_ptr parent = node->parent();
-			if (parent == nullptr) 
-			{
-				// Case 1 - The current node is at the root of the tree.
-				node->color(node_type::node_color::black);
-				return;
-			}
-			else if (parent->color() == node_type::node_color::black) 
-			{
-				// Case 2 - The current node's parent is black, so property 4 (both
-				// children of every red node are black) is not invalidated.
-				return;
-			}
+		void balance_after_insert(node_type_ptr node);
+		
 
-			node_type_ptr grandparent = node->grandparent();
-			node_type_ptr uncle = node->uncle();
+		void rotate_left(node_type_ptr node);
+		
 
-			if (parent->color() == node_type::node_color::red && uncle->color() == node_type::node_color::red)
-			{	
-				// Case 3 - If both the parent and the uncle are red, then both of
-				// them can be repainted black and the grandparent becomes
-				// red (to maintain property 5 (all paths from any given node to its
-				// leaf nodes contain the same number of black nodes)).
-				parent->color(node_type::node_color::black);
-				uncle->color(node_type::node_color::black);
-				grandparent->color(node_type::node_color::red);
-				balance_after_insert(grandparent);
-				return;
-			}
-
-			if (parent->color() == node_type::node_color::red && uncle->color() == node_type::node_color::black)
-			{	
-				// Case 4 - The parent is red but the uncle is black; also, the
-            	// current node is the right child of parent, and parent in turn
-            	// is the left child of its parent grandparent.
-            	if (node == parent->right() && parent == grandparent->left())
-            	{
-					rotate_left(parent);
-					node = node->left();
-					parent = node->parent();
-					grandparent = node->grandparent();
-					uncle = node->uncle();
-            	}
-            	else if (node == parent->left() && parent == grandparent->right())
-            	{
-            		rotate_right(parent);
-            		node = node->right();
-					parent = node->parent();
-					grandparent = node->grandparent();
-					uncle = node->uncle();
-            	}
-			}
-
-			if (parent->color() == node_type::node_color::red && uncle->color() == node_type::node_color::black)
-			{	
-				// Case 5 - The parent is red but the uncle is black, the
-				// current node is the left child of parent, and parent is the
-				// left child of its parent G.
-				parent->color(node_type::node_color::red);
-				parent->color(node_type::node_color::red);
-				if (node == parent->left() && parent == grandparent->left())
-				{
-					rotate_right(grandparent);
-				} 
-				else if (node == parent->right() && parent == grandparent->right())
-				{
-					rotate_left(grandparent);
-				}
-			}
-		}
-
-		void rotate_left(node_type_ptr node)
-		{
-			/*
-			    r			   r
-			    \			    \
-				x	    =>		y							
-			   / \			   / \	
-			  a   y 		  x   c
-			  	 | \		 / \
-			  	 b  c       a   b    
-			*/
-			node_type_ptr parent = node->parent();
-			node_type_ptr greater = node->right();
-			node_type_ptr lesser = greater->left();
-
-			greater->left(node);
-			node->parent(greater);
-			node->right(lesser);
-
-			if (lesser != nullptr)
-			{
-				lesser->parent(node);
-			}
-			
-			if (parent != nullptr) 
-			{
-				if (node == parent->left())
-				{
-					parent->left(greater);
-				} 
-				else if (node == parent->right())
-				{
-					parent->right(greater);
-				} 
-				greater->parent(parent);
-			} 
-			else 
-			{
-				_root = greater;
-				_root->parent(nullptr);
-			}
-		}
-
-		void rotate_right(node_type_ptr node)
-		{
-			/*
-			    r			   r
-			    \			    \
-				x	    =>		y							
-			   / \			   / \	
-			  y   c 		  a   x
-			 | \		 		 / \
-			 a  b       		b   c    
-			*/
-			node_type_ptr parent = node->parent();
-			node_type_ptr lesser = node->left();
-			node_type_ptr greater = lesser->right();
-
-			lesser->right(node);
-			node->parent(lesser);
-			node->left(greater);
-
-			if (lesser != nullptr)
-			{
-				lesser->parent(node);
-			}
-			
-			if (parent != nullptr) 
-			{
-				if (node == parent->left())
-				{
-					parent->left(lesser);
-				} 
-				else if (node == parent->right())
-				{
-					parent->right(lesser);
-				} 
-				lesser->parent(parent);
-			} 
-			else 
-			{
-				_root = lesser;
-				_root->parent(nullptr);
-			}
-		}
+		void rotate_right(node_type_ptr node);
+		
 		
 	};
+
+	#include "rb_tree_inline.h"
 }

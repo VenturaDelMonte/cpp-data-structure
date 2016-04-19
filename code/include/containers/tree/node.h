@@ -27,7 +27,7 @@ namespace containers {
 			typedef M self_type;
 			typedef self_type* self_type_ptr;
 
-		private:
+		public:
 			key_type _key;
 			value_type _value;
 

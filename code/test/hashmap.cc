@@ -37,6 +37,7 @@ TEST(AddGetTest, Basic)
 	int a = 24;
 	val["one"] = 24;
 	PRINTF("%d\n", (int)val["one"]);
+	PRINTF("%d\n", (int)containers::proxy<int>::empty);
 
 	ASSERT_TRUE(containers::proxy<int>::empty == val["none"]);
 	ASSERT_TRUE(24 == int(val["one"]));

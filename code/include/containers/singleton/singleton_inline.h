@@ -9,18 +9,11 @@ TEMPLATE_SPECIALIZATION T* specialized_singleton::instance = specialized_singlet
 
 TEMPLATE_SPECIALIZATION T* specialized_singleton::get_instance()
 {
-	if (!instance)
-	{
-		specialized_singleton::instance = new T();
-	}
-	return instance;
+	static T t;
+	specialized_singleton::instance = &t;
+	return specialized_singleton::instance;
 }
 
-TEMPLATE_SPECIALIZATION void specialized_singleton::destroy()
-{
-	delete specialized_singleton::instance;
-	specialized_singleton::instance = nullptr;
-}
 
 #undef TEMPLATE_SPECIALIZATION
 #undef specialized_singleton

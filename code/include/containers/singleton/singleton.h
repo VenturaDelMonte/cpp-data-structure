@@ -7,7 +7,6 @@ namespace containers
 	{
 	public:
 		static T* get_instance();
-		static void destroy();
 
 	private:
 		singleton(singleton const&) 
@@ -26,7 +25,7 @@ namespace containers
 			instance = static_cast<T*>(this);
 		}
 
-		virtual ~singleton()
+		~singleton()
 		{
 		}
 
