@@ -34,7 +34,7 @@ TEST(AddGetTest, Basic)
 	PRINTF("%d\n", (int)val["neo"]);	
 	PRINTF("%d\n", (int)val["none"]);	
 
-	int a = 24;
+	//int a = 24;
 	val["one"] = 24;
 	PRINTF("%d\n", (int)val["one"]);
 	PRINTF("%d\n", (int)containers::proxy<int>::empty);

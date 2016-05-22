@@ -4,24 +4,28 @@
 
 namespace containers
 {
-	template <typename reference_type> class proxy 
+	template <typename T> class proxy 
 	{
 		//friend class singleton<proxy<reference_type>>;
-		typedef proxy<reference_type> self_type;
+		
 		public:
+			typedef T reference_type;
+			typedef proxy<reference_type> self_type;
 
 			proxy(reference_type& r) : holder(&r) {}
 
 			proxy(reference_type* r = nullptr) : holder(r) {}
 
-			inline void operator= (reference_type& val) 
+			inline self_type& operator= (reference_type& val) 
 			{
 				*holder = val;
+				return *this;
 			}	
 
-			inline void operator= (reference_type&& val) 
+			inline self_type& operator= (reference_type&& val) 
 			{
 				*holder = std::move(val);
+				return *this;
 			}	
 
 			inline operator reference_type() 
@@ -34,7 +38,7 @@ namespace containers
 				return (holder != nullptr) ? *holder : 0;
 			}
 
-		private:
+		protected:
 			reference_type* holder;
 		public:
 			static proxy<reference_type>& empty;

@@ -12,7 +12,7 @@ enable_testing()
 cmake_minimum_required(VERSION 2.6)
 
 # Create a variable containing all .cpp files:
-file(GLOB_RECURSE project_srcs 	src/*.cpp src/*.def src/*.inc src/*.cxx)
+file(GLOB_RECURSE project_srcs 	src/*.c src/*.cpp src/*.def src/*.inc src/*.cxx)
 file(GLOB_RECURSE project_incs 	include/containers/*.h include/containers/*.def include/containers/*.inc )
 
 # list all include paths
