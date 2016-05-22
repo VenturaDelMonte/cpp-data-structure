@@ -12,12 +12,12 @@ namespace containers
 	{
 		template <typename T> struct helper
 		{
-			static uint8_t* convert(T* value)
+			static inline uint8_t* convert(T* value)
 			{
 				return reinterpret_cast<uint8_t*>(value);
 			}
 
-			static size_t len(T& value)
+			static inline size_t len(T& value)
 			{
 				return sizeof(T);
 			}
@@ -25,12 +25,12 @@ namespace containers
 
 		template <> struct helper<std::string>
 		{
-			static uint8_t* convert(std::string* value)
+			static inline uint8_t* convert(std::string* value)
 			{
 				return reinterpret_cast<uint8_t*>(const_cast<char*>(value->c_str()));
 			}
 
-			static size_t len(std::string& value)
+			static inline size_t len(std::string& value)
 			{
 				return value.length();
 			}
@@ -38,19 +38,29 @@ namespace containers
 
 		template <> struct helper<const char*>
 		{
-			static uint8_t* convert(const char** value)
+			static inline uint8_t* convert(const char** value)
 			{
 				return reinterpret_cast<uint8_t*>(const_cast<char*>(*value));
 			}
 
-			static size_t len(const char*& value)
+			static inline size_t len(const char*& value)
 			{
 				return strlen(value);
 			}
 		};
 	}
 
-	template <typename T> class bloom_filter // add hashing policy and make hashify template defined
+	template <typename T> class murmur_hash3
+	{
+	public:
+		inline void hashify(T& key, uint64_t* out, uint64_t seed)
+		{
+			uint8_t* ptr = detail::helper<T>::convert(&key);
+			MurmurHash3_x64_128(ptr, detail::helper<T>::len(key), seed, out);
+		}
+	};
+
+	template <typename T, template <class T1> class hashing_policy = murmur_hash3> class bloom_filter : public hashing_policy<T> 
 	{
 	private:
 		bits_field<uint64_t> field;
@@ -73,11 +83,10 @@ namespace containers
   			}
 		}
 
-
 		void add(T key)
 		{
 			uint64_t tmp[2];
-			hashify(key, tmp);
+			hashing_policy<T>::hashify(key, tmp, seed);
 			for (auto hash : hash_functions)
 			{
 				field[hash(tmp[0], tmp[1])] = true;
@@ -87,7 +96,7 @@ namespace containers
 		bool test(T key)
 		{
 			uint64_t tmp[2];
-			hashify(key, tmp);
+			hashing_policy<T>::hashify(key, tmp, seed);
 			for (auto hash : hash_functions)
 			{
 				if (!field[hash(tmp[0], tmp[1])])
@@ -96,15 +105,9 @@ namespace containers
 			return true;
 		}
 
-	private:
+	
 
 		
-
-		void hashify(T& key, uint64_t* out)
-		{
-			uint8_t* ptr = detail::helper<T>::convert(&key);
-			MurmurHash3_x64_128(ptr, detail::helper<T>::len(key), seed, out);
-		}
 	};
 
 }
